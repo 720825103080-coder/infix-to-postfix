@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Infix to Postfix | Stack Visualizer</title>
+<style>
+*{box-sizing:border-box}
+:root{--bg:#eaf7ff;--card:#fff;--text:#172033;--muted:#667085;--primary:#3977ff;--primary2:#2458d8;--border:#dbe5f0;--soft:#f5f9ff;--success:#138a59}
+body.dark{--bg:#0f172a;--card:#182235;--text:#f5f7fb;--muted:#aab5c7;--primary:#6d96ff;--primary2:#5278df;--border:#334155;--soft:#111b2e;--success:#39c98a}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:linear-gradient(135deg,var(--bg),#f4f0ff);color:var(--text);min-height:100vh;padding:20px}
+.app{max-width:1050px;margin:auto}
+header{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:20px}
+.brand h1{margin:0;font-size:32px}.brand p{margin:6px 0;color:var(--muted)}
+.theme{width:auto;margin:0;padding:10px 15px;background:var(--card);color:var(--text);border:1px solid var(--border)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:22px;margin-bottom:18px;box-shadow:0 8px 25px rgba(20,50,90,.08)}
+label{display:block;font-weight:bold;margin-bottom:9px}
+.input-row{display:flex;gap:10px}
+input{flex:1;min-width:0;padding:15px;border:2px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);font-size:19px;outline:none}
+input:focus{border-color:var(--primary)}
+button{border:0;border-radius:12px;padding:14px 20px;background:var(--primary);color:white;font-weight:bold;font-size:16px;cursor:pointer}
+button:hover{background:var(--primary2)}
+button.secondary{background:#64748b}
+.examples{font-size:13px;color:var(--muted);margin:10px 0 0}
+.results{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.result{background:var(--soft);border-radius:15px;padding:18px;border-left:5px solid var(--primary)}
+.result small{color:var(--muted);font-weight:bold}.result strong{display:block;font-size:25px;margin-top:8px;word-break:break-all}
+.status{margin-top:12px;font-size:14px;font-weight:bold;color:var(--success)}
+.stack-area{text-align:center}
+.stack-box{height:300px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;border:2px dashed var(--border);border-radius:15px;background:var(--soft);padding:15px}
+.stack-item{width:100px;height:43px;margin:3px 0;border-radius:8px;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:bold;box-shadow:0 4px 8px rgba(0,0,0,.12);animation:push .25s ease}
+.top-label{font-weight:bold;color:var(--primary);margin-top:8px}
+.empty{color:var(--muted)}
+.controls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:15px}
+.controls button{padding:10px 16px}
+.step-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:650px}
+th,td{text-align:left;padding:11px;border-bottom:1px solid var(--border);font-size:14px}
+th{background:var(--soft);color:var(--text)}
+code{background:var(--soft);padding:3px 6px;border-radius:5px}
+.info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.info{background:var(--soft);padding:15px;border-radius:12px}
+.info b{display:block;margin-bottom:5px}
+footer{text-align:center;color:var(--muted);font-size:13px;padding:5px 0 15px}
+@keyframes push{from{transform:translateY(-15px) scale(.85);opacity:.2}to{transform:none;opacity:1}}
+@media(max-width:700px){
+ body{padding:12px}.brand h1{font-size:25px}.brand p{font-size:13px}
+ header{align-items:flex-start}.theme{padding:9px 11px}
+ .input-row{flex-direction:column}.input-row button{width:100%}
+ .results,.info-grid{grid-template-columns:1fr}
+ .card{padding:17px}.stack-box{height:250px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">
+    <h1>Infix → Postfix</h1>
+    <p>Stack Data Structure Visualizer</p>
+  </div>
+  <button class="theme" onclick="toggleTheme()" id="themeBtn">🌙 Dark</button>
+</header>
+
+<section class="card">
+  <label for="expression">Enter an Infix Expression</label>
+  <div class="input-row">
+    <input id="expression" placeholder="Example: A+B*(C-D)" autocomplete="off">
+    <button onclick="startConversion()">Convert</button>
+    <button class="secondary" onclick="clearAll()">Clear</button>
+  </div>
+  <p class="examples">Supported: letters/numbers and +  -  *  /  ^ with parentheses. Press Enter to convert.</p>
+  <div id="status" class="status"></div>
+</section>
+
+<section class="results">
+  <div class="result"><small>INFIX</small><strong id="infixResult">—</strong></div>
+  <div class="result"><small>POSTFIX</small><strong id="postfixResult">—</strong></div>
+</section>
+
+<section class="card stack-area">
+  <h2>Live Stack</h2>
+  <p>Watch operators being pushed and popped during conversion.</p>
+  <div id="stackBox" class="stack-box"><span class="empty">Stack is empty</span></div>
+  <div class="top-label" id="topLabel">TOP → —</div>
+  <div class="controls">
+    <button onclick="previousStep()">← Previous</button>
+    <button onclick="nextStep()">Next →</button>
+    <button onclick="playSteps()" id="playBtn">▶ Play</button>
+  </div>
+  <p id="stepCounter" class="examples">Step 0 / 0</p>
+</section>
+
+<section class="card">
+  <h2>Conversion Steps</h2>
+  <div class="step-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Read</th><th>Action</th><th>Stack</th><th>Postfix</th></tr></thead>
+      <tbody id="stepsBody"><tr><td colspan="5" class="empty">Enter an expression to generate steps.</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Algorithm</h2>
+  <div class="info-grid">
+    <div class="info"><b>1. Operand</b>Add it directly to postfix output.</div>
+    <div class="info"><b>2. Operator</b>Pop higher/equal precedence operators, then push the current operator.</div>
+    <div class="info"><b>3. Parentheses</b>Push '(' and pop until '(' when ')' is found.</div>
+  </div>
+</section>
+
+<footer>DSA Project • Infix to Postfix using Stack • Runs directly in a browser</footer>
+</div>
+
+<script>
+class Stack{
+  constructor(){this.items=[]}
+  push(x){this.items.push(x)}
+  pop(){return this.items.pop()}
+  peek(){return this.items[this.items.length-1]}
+  isEmpty(){return this.items.length===0}
+  copy(){return [...this.items]}
+}
+function precedence(op){return op==='^'?3:(op==='*'||op==='/')?2:(op==='+'||op==='-')?1:0}
+function isOperator(c){return ['+','-','*','/','^'].includes(c)}
+function isOperand(c){return /^[A-Za-z0-9]$/.test(c)}
+
+let allSteps=[], currentStep=0, timer=null;
+
+function convert(expr){
+  const stack=new Stack(), steps=[]; let out='', n=0;
+  const record=(read,action)=>steps.push({n:++n,read,action,stack:stack.copy(),out});
+  let opens=0, closes=0;
+
+  for(const c of expr){
+    if(c===' ') continue;
+    if(isOperand(c)){out+=c;record(c,'Add operand to output')}
+    else if(c==='('){stack.push(c);opens++;record(c,"Push '('")}
+    else if(c===')'){
+      closes++;
+      if(stack.isEmpty()) throw Error("Mismatched parentheses.");
+      while(!stack.isEmpty() && stack.peek()!=='(') out+=stack.pop();
+      if(stack.isEmpty()) throw Error("Mismatched parentheses.");
+      stack.pop();record(c,"Pop until '(' and remove '('")}
+    else if(isOperator(c)){
+      while(!stack.isEmpty() && stack.peek()!=='(' &&
+            (precedence(stack.peek())>precedence(c) ||
+             (precedence(stack.peek())===precedence(c)&&c!=='^')))
+        out+=stack.pop();
+      stack.push(c);record(c,'Push operator')
+    }else throw Error('Invalid character: '+c);
+  }
+  if(opens!==closes) throw Error("Mismatched parentheses.");
+  while(!stack.isEmpty()){
+    if(stack.peek()==='(') throw Error("Mismatched parentheses.");
+    out+=stack.pop();
+  }
+  record('—','Empty remaining stack');
+  return {out,steps};
+}
+
+function startConversion(){
+  stopPlay();
+  const expr=document.getElementById('expression').value.trim();
+  if(!expr){alert('Please enter an expression.');return}
+  try{
+    const r=convert(expr); allSteps=r.steps; currentStep=0;
+    document.getElementById('infixResult').textContent=expr;
+    document.getElementById('postfixResult').textContent=r.out;
+    document.getElementById('status').textContent='✓ Conversion successful';
+    renderSteps(); renderCurrent();
+  }catch(e){
+    document.getElementById('status').textContent='';
+    alert(e.message);
+  }
+}
+
+function renderCurrent(){
+  const box=document.getElementById('stackBox');
+  box.innerHTML='';
+  if(!allSteps.length || currentStep===0){
+    box.innerHTML='<span class="empty">Stack is empty</span>';
+  }else{
+    const s=allSteps[currentStep-1];
+    if(!s.stack.length) box.innerHTML='<span class="empty">Stack is empty</span>';
+    else s.stack.forEach(x=>{
+      const d=document.createElement('div');d.className='stack-item';d.textContent=x;box.appendChild(d)
+    });
+  }
+  const top= currentStep>0 && allSteps[currentStep-1].stack.length ?
+    allSteps[currentStep-1].stack.at(-1) : '—';
+  document.getElementById('topLabel').textContent='TOP → '+top;
+  document.getElementById('stepCounter').textContent='Step '+currentStep+' / '+allSteps.length;
+  document.querySelectorAll('#stepsBody tr').forEach((row,i)=>{
+    row.style.outline=(i===currentStep-1)?'2px solid var(--primary)':'none';
+  });
+}
+
+function renderSteps(){
+  const body=document.getElementById('stepsBody');body.innerHTML='';
+  allSteps.forEach(s=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+s.n+'</td><td><code>'+s.read+'</code></td><td>'+s.action+
+      '</td><td>['+((s.stack.length?s.stack.join(' '):'empty'))+
+      ']</td><td>'+((s.out)||'empty')+'</td>';
+    body.appendChild(tr);
+  });
+}
+function nextStep(){if(currentStep<allSteps.length){currentStep++;renderCurrent()}}
+function previousStep(){if(currentStep>0){currentStep--;renderCurrent()}}
+function playSteps(){
+  if(!allSteps.length)return;
+  if(timer){stopPlay();return}
+  document.getElementById('playBtn').textContent='⏸ Pause';
+  timer=setInterval(()=>{
+    if(currentStep>=allSteps.length){stopPlay();return}
+    nextStep();
+  },700);
+}
+function stopPlay(){
+  if(timer){clearInterval(timer);timer=null}
+  const b=document.getElementById('playBtn');if(b)b.textContent='▶ Play';
+}
+function clearAll(){
+  stopPlay();allSteps=[];currentStep=0;
+  document.getElementById('expression').value='';
+  document.getElementById('infixResult').textContent='—';
+  document.getElementById('postfixResult').textContent='—';
+  document.getElementById('status').textContent='';
+  document.getElementById('stepsBody').innerHTML='<tr><td colspan="5" class="empty">Enter an expression to generate steps.</td></tr>';
+  renderCurrent();
+}
+function toggleTheme(){
+  document.body.classList.toggle('dark');
+  const dark=document.body.classList.contains('dark');
+  document.getElementById('themeBtn').textContent=dark?'☀️ Light':'🌙 Dark';
+  localStorage.setItem('darkMode',dark);
+}
+if(localStorage.getItem('darkMode')==='true'){document.body.classList.add('dark');document.getElementById('themeBtn').textContent='☀️ Light'}
+document.getElementById('expression').addEventListener('keydown',e=>{if(e.key==='Enter')startConversion()});
+</script>
+</body>
+</html>
